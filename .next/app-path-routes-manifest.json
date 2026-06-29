@@ -1,0 +1,15 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/api/bookings/route": "/api/bookings",
+  "/api/stripe-checkout-placeholder/route": "/api/stripe-checkout-placeholder",
+  "/api/tournaments/route": "/api/tournaments",
+  "/api/courts/route": "/api/courts",
+  "/admin/page": "/admin",
+  "/dashboard/page": "/dashboard",
+  "/membership/page": "/membership",
+  "/page": "/",
+  "/tournaments/page": "/tournaments",
+  "/login/page": "/login",
+  "/pricing/page": "/pricing",
+  "/booking/page": "/booking"
+}

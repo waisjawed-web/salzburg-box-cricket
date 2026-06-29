@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  PAID
+  APPROVED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum TournamentStatus {
+  DRAFT
+  OPEN
+  FULL
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(USER)
+  phone        String?
+  bookings     Booking[]
+  memberships  Membership[]
+  teams        TeamMember[]
+  payments     Payment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Court {
+  id          String    @id @default(cuid())
+  name        String
+  description String
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  hourlyRate  Int
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Booking {
+  id        String        @id @default(cuid())
+  userId    String
+  courtId   String
+  startsAt  DateTime
+  endsAt    DateTime
+  totalCents Int
+  status    BookingStatus @default(PENDING)
+  user      User          @relation(fields: [userId], references: [id])
+  court     Court         @relation(fields: [courtId], references: [id])
+  payment   Payment?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([courtId, startsAt])
+  @@index([userId])
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  bookingId             String?       @unique
+  userId                String
+  amountCents           Int
+  currency              String        @default("eur")
+  provider              String        @default("stripe")
+  providerSessionId     String?
+  providerPaymentIntent String?
+  status                PaymentStatus @default(PENDING)
+  booking               Booking?      @relation(fields: [bookingId], references: [id])
+  user                  User          @relation(fields: [userId], references: [id])
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+}
+
+model MembershipPlan {
+  id          String       @id @default(cuid())
+  name        String
+  description String
+  monthlyCents Int
+  perks       String[]
+  memberships Membership[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Membership {
+  id        String         @id @default(cuid())
+  userId    String
+  planId    String
+  startsAt  DateTime
+  endsAt    DateTime?
+  isActive  Boolean        @default(true)
+  user      User           @relation(fields: [userId], references: [id])
+  plan      MembershipPlan @relation(fields: [planId], references: [id])
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model Tournament {
+  id            String           @id @default(cuid())
+  name          String
+  description   String
+  startsAt      DateTime
+  entryFeeCents Int
+  maxTeams      Int
+  status        TournamentStatus @default(OPEN)
+  teams         Team[]
+  matches       Match[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+model Team {
+  id           String       @id @default(cuid())
+  tournamentId String
+  name         String
+  captainName  String
+  captainEmail String
+  members      TeamMember[]
+  tournament   Tournament   @relation(fields: [tournamentId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([tournamentId, name])
+}
+
+model TeamMember {
+  id     String @id @default(cuid())
+  teamId String
+  userId String?
+  name   String
+  team   Team   @relation(fields: [teamId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+}
+
+model Match {
+  id           String     @id @default(cuid())
+  tournamentId String
+  courtName    String
+  homeTeam     String
+  awayTeam     String
+  startsAt     DateTime
+  score         String?
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+}

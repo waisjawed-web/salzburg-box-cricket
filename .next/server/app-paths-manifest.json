@@ -1,0 +1,15 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/bookings/route": "app/api/bookings/route.js",
+  "/api/stripe-checkout-placeholder/route": "app/api/stripe-checkout-placeholder/route.js",
+  "/api/tournaments/route": "app/api/tournaments/route.js",
+  "/api/courts/route": "app/api/courts/route.js",
+  "/admin/page": "app/admin/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/membership/page": "app/membership/page.js",
+  "/page": "app/page.js",
+  "/tournaments/page": "app/tournaments/page.js",
+  "/login/page": "app/login/page.js",
+  "/pricing/page": "app/pricing/page.js",
+  "/booking/page": "app/booking/page.js"
+}

@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --font-display: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 90, 0.16), transparent 30rem),
+    linear-gradient(135deg, #07110b 0%, #0c1710 48%, #12120d 100%);
+  color: #f8fafc;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(190, 242, 100, 0.35);
+}
+
+.surface {
+  border: 1px solid rgba(248, 250, 252, 0.1);
+  background: rgba(8, 18, 12, 0.78);
+  backdrop-filter: blur(18px);
+}
+
+.field {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 250, 252, 0.12);
+  background: rgba(7, 17, 11, 0.88);
+  padding: 0.85rem 1rem;
+  color: #f8fafc;
+  outline: none;
+}
+
+.field:focus {
+  border-color: rgba(20, 184, 90, 0.8);
+  box-shadow: 0 0 0 3px rgba(20, 184, 90, 0.16);
+}
