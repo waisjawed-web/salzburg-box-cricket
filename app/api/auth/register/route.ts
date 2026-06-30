@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { SESSION_COOKIE } from "@/lib/auth";
+import { sendWelcomeEmail } from "@/lib/email";
 import { hasDatabaseUrl, prisma } from "@/lib/prisma";
 
 const registerSchema = z.object({
@@ -21,16 +22,25 @@ export async function POST(request: Request) {
   }
 
   const { name, email, password } = parsed.data;
+  const normalizedEmail = email.toLowerCase();
   const passwordHash = await bcrypt.hash(password, 10);
-  const role = email.toLowerCase().includes("admin") ? "ADMIN" : "USER";
+  const role = normalizedEmail.includes("admin") ? "ADMIN" : "USER";
 
   try {
     const user = await prisma.user.create({
-      data: { name, email: email.toLowerCase(), passwordHash, role },
+      data: { name, email: normalizedEmail, passwordHash, role },
       select: { id: true, name: true, email: true, role: true }
     });
 
-    const response = NextResponse.json({ user }, { status: 201 });
+    const emailResult = await sendWelcomeEmail({
+      to: user.email,
+      customerName: user.name
+    });
+
+    const response = NextResponse.json({
+      user,
+      emailQueued: !emailResult.skipped && !emailResult.error
+    }, { status: 201 });
     response.cookies.set(SESSION_COOKIE, user.id, {
       httpOnly: true,
       sameSite: "lax",
