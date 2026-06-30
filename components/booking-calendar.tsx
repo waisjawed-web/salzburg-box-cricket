@@ -6,39 +6,50 @@ import { Button } from "@/components/button";
 import { courts, slots } from "@/lib/data";
 import { formatEuro } from "@/lib/utils";
 
-type LocalBooking = {
-  id: string;
-  courtName: string;
-  date: string;
-  time: string;
-  amount: number;
-  status: string;
-};
+type CheckoutState = "idle" | "loading" | "error";
 
 export function BookingCalendar() {
   const [selectedCourt, setSelectedCourt] = useState(courts[0].id);
   const [date, setDate] = useState("2026-07-03");
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [paidBooking, setPaidBooking] = useState<LocalBooking | null>(null);
+  const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
+  const [message, setMessage] = useState("");
 
   const court = courts.find((item) => item.id === selectedCourt) ?? courts[0];
   const courtSlots = useMemo(() => slots.filter((slot) => slot.courtId === selectedCourt), [selectedCourt]);
   const slot = courtSlots.find((item) => item.time === selectedSlot);
 
-  function fakePay() {
+  async function startCheckout() {
     if (!slot) return;
 
-    const booking: LocalBooking = {
-      id: `MVP-${Date.now().toString().slice(-6)}`,
-      courtName: court.name,
-      date,
-      time: slot.label,
-      amount: slot.price,
-      status: "Paid"
-    };
+    setCheckoutState("loading");
+    setMessage("");
 
-    localStorage.setItem("sbc:lastBooking", JSON.stringify(booking));
-    setPaidBooking(booking);
+    const response = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        courtId: selectedCourt,
+        date,
+        time: slot.time
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setCheckoutState("error");
+      setMessage(data.error || "Checkout could not start. Please try again.");
+      return;
+    }
+
+    if (data.url) {
+      window.location.href = data.url;
+      return;
+    }
+
+    setCheckoutState("error");
+    setMessage("Stripe did not return a checkout link. Please try again.");
   }
 
   return (
@@ -51,7 +62,7 @@ export function BookingCalendar() {
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">
             <CalendarDays size={17} />
-            Live MVP slots
+            Live slots
           </div>
         </div>
 
@@ -68,7 +79,7 @@ export function BookingCalendar() {
               onChange={(event) => {
                 setSelectedCourt(event.target.value);
                 setSelectedSlot(null);
-                setPaidBooking(null);
+                setMessage("");
               }}
             >
               {courts.map((item) => (
@@ -89,7 +100,7 @@ export function BookingCalendar() {
                 disabled={!item.available}
                 onClick={() => {
                   setSelectedSlot(item.time);
-                  setPaidBooking(null);
+                  setMessage("");
                 }}
                 className={[
                   "min-h-24 rounded-lg border p-4 text-left transition",
@@ -136,21 +147,18 @@ export function BookingCalendar() {
           </div>
         </div>
 
-        <Button className="mt-5 w-full" disabled={!slot} onClick={fakePay}>
+        <Button className="mt-5 w-full" disabled={!slot || checkoutState === "loading"} onClick={startCheckout}>
           <CreditCard size={18} />
-          Fake pay and reserve
+          {checkoutState === "loading" ? "Opening Stripe..." : "Pay with Stripe"}
         </Button>
         <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-400">
           <Lock className="mt-0.5 shrink-0 text-lime" size={14} />
-          Stripe Checkout is intentionally stubbed for the MVP. This button stores a paid booking locally and can be replaced by a checkout session.
+          Secure card payment is handled by Stripe. Your booking is confirmed after payment succeeds.
         </p>
 
-        {paidBooking ? (
-          <div className="mt-5 rounded-lg border border-turf/40 bg-turf/10 p-4">
-            <p className="font-bold text-lime">Booking confirmed</p>
-            <p className="mt-2 text-sm text-slate-200">
-              {paidBooking.id} for {paidBooking.courtName}, {paidBooking.time}. Email confirmation placeholder triggered.
-            </p>
+        {message ? (
+          <div className="mt-5 rounded-lg border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-100">
+            {message}
           </div>
         ) : null}
       </aside>
