@@ -28,7 +28,9 @@ export async function POST(request: NextRequest) {
   }
 
   if (!hasStripeConfig()) {
-    return NextResponse.json({ error: "Stripe is not configured yet. Add STRIPE_SECRET_KEY in Vercel." }, { status: 503 });
+    return NextResponse.json({
+      error: "Stripe is not connected yet. Add STRIPE_SECRET_KEY in Vercel, then redeploy."
+    }, { status: 503 });
   }
 
   const user = await getCurrentUser();
