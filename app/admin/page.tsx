@@ -100,8 +100,8 @@ export default function AdminPage() {
             <div className="mt-5 flex items-center gap-4 rounded-lg border border-white/10 bg-white/5 p-4">
               <Banknote className="text-lime" />
               <div>
-                <p className="font-bold text-white">Fake payment mode</p>
-                <p className="text-sm text-slate-400">Stripe session route can replace this in phase two.</p>
+                <p className="font-bold text-white">Stripe checkout enabled</p>
+                <p className="text-sm text-slate-400">Bookings open Stripe checkout and are marked paid by the Stripe webhook.</p>
               </div>
             </div>
           </section>
