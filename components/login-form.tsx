@@ -49,7 +49,7 @@ export function LoginForm() {
       </div>
       {error ? <p className="mt-4 rounded-md border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-100">{error}</p> : null}
       <Button className="mt-6 w-full" onClick={submit} disabled={isSubmitting}>{mode === "login" ? <LogIn size={18} /> : <UserPlus size={18} />}{isSubmitting ? "Please wait..." : mode === "login" ? "Continue" : "Create account"}</Button>
-      <p className="mt-4 text-center text-sm text-slate-400">Accounts will save to the live database once DATABASE_URL is connected in Vercel.</p>
+      <p className="mt-4 text-center text-sm text-slate-400">Accounts and bookings are saved securely for your Salzburg Box Cricket sessions.</p>
     </div>
   );
 }
