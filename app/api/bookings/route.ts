@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { sendBookingConfirmationEmail } from "@/lib/email";
 import { bookings } from "@/lib/data";
 import { courts } from "@/lib/data";
 import { hasDatabaseUrl, prisma } from "@/lib/prisma";
@@ -12,6 +13,10 @@ const bookingSchema = z.object({
   userEmail: z.string().email().optional(),
   amount: z.number().positive()
 });
+
+function formatBookingTime(startsAt: Date, endsAt: Date) {
+  return `${startsAt.toISOString().slice(11, 16)} - ${endsAt.toISOString().slice(11, 16)}`;
+}
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -83,12 +88,22 @@ export async function POST(request: Request) {
             userId: user.id,
             amountCents: Math.round(parsed.data.amount * 100),
             status: "PAID",
-            provider: "fake",
-            providerSessionId: `fake_${Date.now()}`
+            provider: "manual",
+            providerSessionId: `manual_${Date.now()}`
           }
         }
       },
-      include: { court: true }
+      include: { court: true, user: true }
+    });
+
+    const emailResult = await sendBookingConfirmationEmail({
+      to: booking.user.email,
+      customerName: booking.user.name,
+      bookingId: booking.id,
+      courtName: booking.court.name,
+      date: parsed.data.date,
+      time: formatBookingTime(booking.startsAt, booking.endsAt),
+      amountCents: booking.totalCents
     });
 
     return NextResponse.json({
@@ -100,14 +115,14 @@ export async function POST(request: Request) {
         amount: booking.totalCents / 100,
         status: booking.status
       },
-      emailQueued: true,
-      paymentMode: "fake"
+      emailQueued: !emailResult.skipped && !emailResult.error,
+      paymentMode: "manual"
     }, { status: 201 });
   }
 
   return NextResponse.json({
     booking: { id: `MVP-${Date.now().toString().slice(-6)}`, ...parsed.data, status: "PAID" },
-    emailQueued: true,
+    emailQueued: false,
     paymentMode: "fake"
   }, { status: 201 });
 }
