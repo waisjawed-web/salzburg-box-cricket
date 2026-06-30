@@ -1,5 +1,5 @@
 import { XCircle } from "lucide-react";
-import { Button } from "@/components/button";
+import { ButtonLink } from "@/components/button";
 
 export default function BookingCancelPage() {
   return (
@@ -10,7 +10,7 @@ export default function BookingCancelPage() {
         <h1 className="mt-3 font-[var(--font-display)] text-4xl font-black text-white">No charge was made.</h1>
         <p className="mt-4 text-slate-300">Your slot is not confirmed until payment is completed. Pick a slot and try again whenever you are ready.</p>
         <div className="mt-8">
-          <Button href="/booking">Return to booking</Button>
+          <ButtonLink href="/booking">Return to booking</ButtonLink>
         </div>
       </div>
     </div>
