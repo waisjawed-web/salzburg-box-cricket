@@ -7,7 +7,17 @@ import { bookings, courts, tournaments } from "@/lib/data";
 import { hasDatabaseUrl, prisma } from "@/lib/prisma";
 import { formatEuro } from "@/lib/utils";
 
-type AdminBooking = (typeof bookings)[number];
+type AdminBooking = {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  courtName: string;
+  date: string;
+  time: string;
+  status: string;
+  amount: number;
+};
+
 type AdminCourt = (typeof courts)[number];
 
 function formatStatus(status: string) {
