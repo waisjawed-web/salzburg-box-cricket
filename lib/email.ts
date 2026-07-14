@@ -6,6 +6,7 @@ type BookingEmailInput = {
   date: string;
   time: string;
   amountCents: number;
+  paymentLabel?: string;
 };
 
 type WelcomeEmailInput = {
@@ -93,6 +94,7 @@ export async function sendBookingConfirmationEmail(input: BookingEmailInput) {
   const courtName = escapeHtml(input.courtName);
   const date = escapeHtml(input.date);
   const time = escapeHtml(input.time);
+  const paymentText = input.paymentLabel ? escapeHtml(input.paymentLabel) : formatEuroFromCents(input.amountCents);
   const { appUrl } = getEmailSettings();
   const subject = `Booking confirmed: ${courtName}`;
   const html = `
@@ -105,7 +107,7 @@ export async function sendBookingConfirmationEmail(input: BookingEmailInput) {
         <tr><td style="padding: 8px; border: 1px solid #d7eadc; font-weight: bold;">Court</td><td style="padding: 8px; border: 1px solid #d7eadc;">${courtName}</td></tr>
         <tr><td style="padding: 8px; border: 1px solid #d7eadc; font-weight: bold;">Date</td><td style="padding: 8px; border: 1px solid #d7eadc;">${date}</td></tr>
         <tr><td style="padding: 8px; border: 1px solid #d7eadc; font-weight: bold;">Time</td><td style="padding: 8px; border: 1px solid #d7eadc;">${time}</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #d7eadc; font-weight: bold;">Paid</td><td style="padding: 8px; border: 1px solid #d7eadc;">${formatEuroFromCents(input.amountCents)}</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #d7eadc; font-weight: bold;">Payment</td><td style="padding: 8px; border: 1px solid #d7eadc;">${paymentText}</td></tr>
       </table>
       <p>You can manage your booking from your dashboard:</p>
       <p><a href="${appUrl}/dashboard" style="background: #22c55e; color: #07130b; padding: 12px 18px; border-radius: 8px; text-decoration: none; font-weight: bold;">Open dashboard</a></p>
