@@ -1,11 +1,64 @@
 import { Banknote, CalendarClock, CircleDollarSign, Landmark, Trophy, Users } from "lucide-react";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/button";
 import { StatCard } from "@/components/stat-card";
+import { getCurrentUser } from "@/lib/auth";
 import { bookings, courts, tournaments } from "@/lib/data";
+import { hasDatabaseUrl, prisma } from "@/lib/prisma";
 import { formatEuro } from "@/lib/utils";
 
-export default function AdminPage() {
-  const revenue = bookings.reduce((sum, booking) => sum + booking.amount, 0);
+type AdminBooking = (typeof bookings)[number];
+type AdminCourt = (typeof courts)[number];
+
+function formatStatus(status: string) {
+  return status.charAt(0) + status.slice(1).toLowerCase();
+}
+
+export default async function AdminPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role !== "ADMIN") redirect("/dashboard");
+
+  let adminBookings: AdminBooking[] = bookings;
+  let adminCourts: AdminCourt[] = courts;
+  let tournamentCount = tournaments.length;
+
+  if (hasDatabaseUrl()) {
+    const [savedBookings, savedCourts, savedTournamentCount] = await Promise.all([
+      prisma.booking.findMany({
+        include: { court: true, user: true },
+        orderBy: { startsAt: "desc" },
+        take: 50
+      }),
+      prisma.court.findMany({ orderBy: { name: "asc" } }),
+      prisma.tournament.count()
+    ]);
+
+    adminBookings = savedBookings.map((booking) => ({
+      id: booking.id,
+      customerName: booking.user.name,
+      customerEmail: booking.user.email,
+      courtName: booking.court.name,
+      date: booking.startsAt.toISOString().slice(0, 10),
+      time: `${booking.startsAt.toISOString().slice(11, 16)} - ${booking.endsAt.toISOString().slice(11, 16)}`,
+      status: formatStatus(booking.status),
+      amount: booking.totalCents / 100
+    }));
+
+    if (savedCourts.length > 0) {
+      adminCourts = savedCourts.map((court) => ({
+        id: court.id,
+        name: court.name,
+        description: court.description,
+        hourlyRate: court.hourlyRate / 100,
+        features: court.isActive ? ["Active"] : ["Inactive"]
+      }));
+    }
+
+    tournamentCount = savedTournamentCount;
+  }
+
+  const revenue = adminBookings.reduce((sum, booking) => sum + booking.amount, 0);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -16,10 +69,10 @@ export default function AdminPage() {
       </p>
 
       <div className="mt-8 grid gap-4 md:grid-cols-4">
-        <StatCard label="Bookings" value={bookings.length.toString()} icon={<CalendarClock size={20} />} />
+        <StatCard label="Bookings" value={adminBookings.length.toString()} icon={<CalendarClock size={20} />} />
         <StatCard label="Revenue" value={formatEuro(revenue)} icon={<CircleDollarSign size={20} />} />
-        <StatCard label="Courts" value={courts.length.toString()} icon={<Landmark size={20} />} />
-        <StatCard label="Tournaments" value={tournaments.length.toString()} icon={<Trophy size={20} />} />
+        <StatCard label="Courts" value={adminCourts.length.toString()} icon={<Landmark size={20} />} />
+        <StatCard label="Tournaments" value={tournamentCount.toString()} icon={<Trophy size={20} />} />
       </div>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
@@ -41,7 +94,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {bookings.map((booking) => (
+                {adminBookings.map((booking) => (
                   <tr key={booking.id} className="border-b border-white/10 text-slate-300">
                     <td className="py-4 pr-4 font-bold text-white">{booking.id}</td>
                     <td className="py-4 pr-4">
@@ -70,7 +123,7 @@ export default function AdminPage() {
           <section className="surface rounded-lg p-6">
             <h2 className="font-[var(--font-display)] text-2xl font-black text-white">Court prices</h2>
             <div className="mt-5 space-y-3">
-              {courts.map((court) => (
+              {adminCourts.map((court) => (
                 <div key={court.id} className="rounded-lg border border-white/10 bg-white/5 p-4">
                   <p className="font-bold text-white">{court.name}</p>
                   <div className="mt-3 flex items-center gap-3">
@@ -100,8 +153,8 @@ export default function AdminPage() {
             <div className="mt-5 flex items-center gap-4 rounded-lg border border-white/10 bg-white/5 p-4">
               <Banknote className="text-lime" />
               <div>
-                <p className="font-bold text-white">Stripe checkout enabled</p>
-                <p className="text-sm text-slate-400">Bookings open Stripe checkout and are marked paid by the Stripe webhook.</p>
+                <p className="font-bold text-white">Booking payments</p>
+                <p className="text-sm text-slate-400">Stripe opens when connected. Until then, bookings are reserved and customers pay at the venue.</p>
               </div>
             </div>
           </section>
