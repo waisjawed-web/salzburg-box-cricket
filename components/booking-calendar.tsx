@@ -1,37 +1,72 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, CreditCard, Lock, XCircle } from "lucide-react";
 import { Button } from "@/components/button";
 import { courts, slots } from "@/lib/data";
 import { formatEuro } from "@/lib/utils";
 
-type CheckoutState = "idle" | "loading" | "error";
+type BookingSlot = (typeof slots)[number];
+type CheckoutState = "idle" | "loading" | "error" | "success";
+
+function getDefaultDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
 
 export function BookingCalendar() {
   const [selectedCourt, setSelectedCourt] = useState(courts[0].id);
-  const [date, setDate] = useState("2026-07-03");
+  const [date, setDate] = useState(getDefaultDate);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<BookingSlot[]>(() => slots.filter((slot) => slot.courtId === courts[0].id));
   const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
   const [message, setMessage] = useState("");
 
   const court = courts.find((item) => item.id === selectedCourt) ?? courts[0];
-  const courtSlots = useMemo(() => slots.filter((slot) => slot.courtId === selectedCourt), [selectedCourt]);
-  const slot = courtSlots.find((item) => item.time === selectedSlot);
+  const slot = availableSlots.find((item) => item.time === selectedSlot);
+  const selectedSlotStillAvailable = slot?.available ?? false;
 
-  async function startCheckout() {
-    if (!slot) return;
+  const selectedSlotPrice = useMemo(() => {
+    return slot ? formatEuro(slot.price) : "EUR 0";
+  }, [slot]);
 
-    setCheckoutState("loading");
+  async function refreshAvailability() {
+    const fallbackSlots = slots.filter((item) => item.courtId === selectedCourt);
+
+    try {
+      const response = await fetch(`/api/bookings?courtId=${encodeURIComponent(selectedCourt)}&date=${encodeURIComponent(date)}`);
+      const data = await response.json();
+      const nextSlots = response.ok && Array.isArray(data.slots) ? data.slots : fallbackSlots;
+      setAvailableSlots(nextSlots);
+
+      if (selectedSlot && !nextSlots.some((item: BookingSlot) => item.time === selectedSlot && item.available)) {
+        setSelectedSlot(null);
+      }
+    } catch {
+      setAvailableSlots(fallbackSlots);
+    }
+  }
+
+  useEffect(() => {
+    setSelectedSlot(null);
     setMessage("");
+    setCheckoutState("idle");
+    refreshAvailability();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourt, date]);
 
-    const response = await fetch("/api/checkout", {
+  async function reserveWithoutStripe() {
+    if (!slot) return false;
+
+    const response = await fetch("/api/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         courtId: selectedCourt,
         date,
-        time: slot.time
+        time: slot.time,
+        amount: slot.price
       })
     });
 
@@ -39,18 +74,57 @@ export function BookingCalendar() {
 
     if (!response.ok) {
       setCheckoutState("error");
-      setMessage(data.error || "Checkout could not start. Please try again.");
-      return;
+      setMessage(data.error || "Booking could not be reserved. Please try another slot.");
+      return false;
     }
 
-    if (data.url) {
-      window.location.href = data.url;
-      return;
-    }
-
-    setCheckoutState("error");
-    setMessage("Stripe did not return a checkout link. Please try again.");
+    setCheckoutState("success");
+    setMessage(data.message || "Booking reserved. Please pay at the venue.");
+    setSelectedSlot(null);
+    await refreshAvailability();
+    return true;
   }
+
+  async function startCheckout() {
+    if (!slot || !selectedSlotStillAvailable) return;
+
+    setCheckoutState("loading");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courtId: selectedCourt,
+          date,
+          time: slot.time
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      const canReserveAtVenue = response.status === 503 || String(data.error || "").toLowerCase().includes("stripe");
+      if (canReserveAtVenue) {
+        await reserveWithoutStripe();
+        return;
+      }
+
+      setCheckoutState("error");
+      setMessage(data.error || "Checkout could not start. Please try again.");
+    } catch {
+      await reserveWithoutStripe();
+    }
+  }
+
+  const messageClass = checkoutState === "success"
+    ? "border-turf/40 bg-turf/10 text-lime"
+    : "border-red-400/30 bg-red-500/10 text-red-100";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -92,7 +166,7 @@ export function BookingCalendar() {
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {courtSlots.map((item) => {
+          {availableSlots.map((item) => {
             const active = selectedSlot === item.time;
             return (
               <button
@@ -100,6 +174,7 @@ export function BookingCalendar() {
                 disabled={!item.available}
                 onClick={() => {
                   setSelectedSlot(item.time);
+                  setCheckoutState("idle");
                   setMessage("");
                 }}
                 className={[
@@ -143,21 +218,21 @@ export function BookingCalendar() {
           </div>
           <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3 font-bold text-white">
             <span>Total</span>
-            <span>{slot ? formatEuro(slot.price) : "EUR 0"}</span>
+            <span>{selectedSlotPrice}</span>
           </div>
         </div>
 
-        <Button className="mt-5 w-full" disabled={!slot || checkoutState === "loading"} onClick={startCheckout}>
+        <Button className="mt-5 w-full" disabled={!slot || !selectedSlotStillAvailable || checkoutState === "loading"} onClick={startCheckout}>
           <CreditCard size={18} />
-          {checkoutState === "loading" ? "Opening Stripe..." : "Pay with Stripe"}
+          {checkoutState === "loading" ? "Confirming..." : "Book this slot"}
         </Button>
         <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-400">
           <Lock className="mt-0.5 shrink-0 text-lime" size={14} />
-          Secure card payment is handled by Stripe. Your booking is confirmed after payment succeeds.
+          Online payment opens when Stripe is connected. If not, your slot is reserved and you can pay at the venue.
         </p>
 
         {message ? (
-          <div className="mt-5 rounded-lg border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-100">
+          <div className={`mt-5 rounded-lg border p-4 text-sm ${messageClass}`}>
             {message}
           </div>
         ) : null}
